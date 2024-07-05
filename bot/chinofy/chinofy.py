@@ -17,7 +17,7 @@ import requests
 import json
 import time
 
-from bot.chinofy.config import CONFIG
+from config import CONFIG
 
 """ URLs to interact with Spotify API """
 FOLLOWED_ARTISTS_URL = 'https://api.spotify.com/v1/me/following?type=artist'

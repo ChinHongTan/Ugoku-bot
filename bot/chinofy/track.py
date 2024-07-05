@@ -8,10 +8,10 @@ import ffmpy
 from typing import Any, List, Tuple
 from librespot.metadata import TrackId
 
-from bot.chinofy.chinofy import Chinofy
-from bot.chinofy.config import CONFIG
-from bot.chinofy.const import CODEC_MAP, EXT_MAP
-from bot.chinofy.utils import add_to_directory_song_ids, create_download_directory, fix_filename, fmt_seconds, get_directory_song_ids, set_audio_tags, set_music_thumbnail
+from chinofy import Chinofy
+from config import CONFIG
+from const import CODEC_MAP, EXT_MAP
+from utils import add_to_directory_song_ids, create_download_directory, fix_filename, fmt_seconds, get_directory_song_ids, set_audio_tags, set_music_thumbnail
 
 TRACKS_URL = 'https://api.spotify.com/v1/tracks'
 
@@ -55,7 +55,7 @@ def get_song_genres(rawartists: List[str], track_name: str) -> List[str]:
                 # query artist genres via href, which will be the api url
                 with print("Fetching artist information..."):
                     (raw, artistInfo) = Chinofy.invoke_url(f'{data['href']}')
-                if CONFIG.get_all_genres() and len(artistInfo['genres']) > 0:
+                if CONFIG['MD_ALLGENRES'] and len(artistInfo['genres']) > 0:
                     for genre in artistInfo['genres']:
                         genres.append(genre)
                 elif len(artistInfo['genres']) > 0:
@@ -259,6 +259,3 @@ def convert_audio_format(filename) -> None:
 
     except ffmpy.FFExecutableNotFoundError:
         print(f'###   SKIPPING {file_codec.upper()} CONVERSION - FFMPEG NOT FOUND   ###')
-
-download_track('single', '3mdtjsn20feMaoIaiiIw52') # Testing the function
-print("done")

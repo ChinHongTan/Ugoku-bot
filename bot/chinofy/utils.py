@@ -8,7 +8,7 @@ from typing import List, Tuple
 import music_tag
 import requests
 
-from bot.chinofy.config import CONFIG
+from config import CONFIG
 
 def create_download_directory(download_path: str) -> None:
     """ Create directory and add a hidden file with song ids """
