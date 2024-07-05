@@ -9,7 +9,7 @@ CONFIG = {
     'OUTPUT':                     ''                                                                ,
     'SONG_ARCHIVE':               ''                                                                ,
     'ROOT_PATH':                  Path('.').absolute() / 'output' / 'vc_songs' / 'OGG 320' / id     ,
-    'ROOT_PODCAST_PATH':          ''                                                                ,
+    'ROOT_PODCAST_PATH':          Path('.').absolute() / 'output' / 'vc_podcasts' / id              ,
     'SPLIT_ALBUM_DISCS':          False                                                             ,
     'DOWNLOAD_LYRICS':            True                                                              ,
     'MD_SAVE_GENRES':             False                                                             ,
