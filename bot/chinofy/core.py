@@ -1,6 +1,9 @@
-from bot.chinofy.track import download_track
-from bot.chinofy.utils import regex_input_for_urls
-from bot.chinofy.chinofy import Chinofy
+from album import download_album, download_artist_albums
+from podcast import download_episode, get_show_episodes
+from playlist import get_playlist_info, get_playlist_songs
+from track import download_track
+from utils import regex_input_for_urls
+from chinofy import Chinofy
 
 SEARCH_URL = 'https://api.spotify.com/v1/search'
 
@@ -13,8 +16,7 @@ def download_from_urls(urls: list[str]) -> bool:
 
         if track_id is not None:
             download = True
-            download_track('single', track_id)
-        """               ### I will get back to them later I promise :<
+            download_track('single', track_id)             
         elif artist_id is not None:
             download = True
             download_artist_albums(artist_id)
@@ -28,19 +30,19 @@ def download_from_urls(urls: list[str]) -> bool:
             enum = 1
             char_num = len(str(len(playlist_songs)))
             for song in playlist_songs:
-                if not song[TRACK][NAME] or not song[TRACK][ID]:
-                    Printer.print(PrintChannel.SKIPS, '###   SKIPPING:  SONG DOES NOT EXIST ANYMORE   ###' + "\n")
+                if not song['track']['name'] or not song['track']['id']:
+                    print('###   SKIPPING:  SONG DOES NOT EXIST ANYMORE   ###' + "\n")
                 else:
-                    if song[TRACK][TYPE] == "episode": # Playlist item is a podcast episode
-                        download_episode(song[TRACK][ID])
+                    if song['track']['type'] == "episode": # Playlist item is a podcast episode
+                        download_episode(song['track']['id'])
                     else:
-                        download_track('playlist', song[TRACK][ID], extra_keys=
+                        download_track('playlist', song['track']['id'], extra_keys=
                         {
-                            'playlist_song_name': song[TRACK][NAME],
+                            'playlist_song_name': song['track']['name'],
                             'playlist': name,
                             'playlist_num': str(enum).zfill(char_num),
                             'playlist_id': playlist_id,
-                            'playlist_track_id': song[TRACK][ID]
+                            'playlist_track_id': song['track']['id']
                         })
                     enum += 1
         elif episode_id is not None:
@@ -50,11 +52,14 @@ def download_from_urls(urls: list[str]) -> bool:
             download = True
             for episode in get_show_episodes(show_id):
                 download_episode(episode)
-        """
+        
 
     return download
 
+Chinofy()
 # download_from_urls(["https://open.spotify.com/track/57Bv7VXc2IHBfznHUoOTOM?si=2ca5cba195164a4f"]) # Testing the function
+# download_from_urls(["https://open.spotify.com/album/13xiFFc0cBN88k8Nb3X9oR?si=Pp8hpC3-RoSezbRwI_lUmQ"]) # for album
+download_from_urls(["https://open.spotify.com/episode/72MGWsCUCg8PkuoAlzYdoA?si=ed7ad39fdfee4900"]) # for episode
 
 def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['track','album','artist','playlist']):
     """ Searches download server's API for relevant data """
