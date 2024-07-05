@@ -56,10 +56,10 @@ def download_from_urls(urls: list[str]) -> bool:
 
     return download
 
-Chinofy()
+# Chinofy()
 # download_from_urls(["https://open.spotify.com/track/57Bv7VXc2IHBfznHUoOTOM?si=2ca5cba195164a4f"]) # Testing the function
 # download_from_urls(["https://open.spotify.com/album/13xiFFc0cBN88k8Nb3X9oR?si=Pp8hpC3-RoSezbRwI_lUmQ"]) # for album
-download_from_urls(["https://open.spotify.com/episode/72MGWsCUCg8PkuoAlzYdoA?si=ed7ad39fdfee4900"]) # for episode
+# download_from_urls(["https://open.spotify.com/episode/72MGWsCUCg8PkuoAlzYdoA?si=ed7ad39fdfee4900"]) # for episode
 
 def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['track','album','artist','playlist']):
     """ Searches download server's API for relevant data """
