@@ -610,7 +610,7 @@ async def play_spotify(ctx: discord.ApplicationContext, url: str) -> None:
 
     await ctx.respond('Give me a second !')
     # Problem: have to wait to dl EVERYTHING before playing
-    all_data = sd.from_url(url)
+    all_data = sd.from_query(url)  # Change to test my function
     first_info_dict = all_data.pop(0)
     await session.add_to_queue(ctx, first_info_dict, source='Spotify')
 
