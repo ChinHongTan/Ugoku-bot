@@ -7,13 +7,22 @@ https://github.com/zotify-dev/zotify """
 
 # For now Im just pasting all code into one single giant file, I will split it up later
 
+import os
+from dotenv import load_dotenv
 from librespot.core import Session
 from librespot.audio.decoders import VorbisOnlyAudioQuality
+from librespot.metadata import TrackId
 import requests
 import json
 import time
 import re
 import platform
+import uuid
+import traceback
+import ffmpy
+import datetime
+import math
+import music_tag
 from typing import Any, Tuple, List
 from pathlib import Path, PurePath
 
@@ -45,6 +54,39 @@ EXT_MAP = {
     'vorbis': 'ogg',
 }
 
+CONFIG = {
+    'SAVE_CREDENTIALS':           'True' ,
+    'CREDENTIALS_LOCATION':       ''     ,
+    'OUTPUT':                     ''     ,
+    'SONG_ARCHIVE':               ''     ,
+    'ROOT_PATH':                  ''     ,
+    'ROOT_PODCAST_PATH':          ''     ,
+    'SPLIT_ALBUM_DISCS':          'False',
+    'DOWNLOAD_LYRICS':            'True' ,
+    'MD_SAVE_GENRES':             'False',
+    'MD_ALLGENRES':               'False',
+    'MD_GENREDELIMITER':          ','    ,
+    'DOWNLOAD_FORMAT':            'ogg'  ,
+    'DOWNLOAD_QUALITY':           'auto' ,
+    'TRANSCODE_BITRATE':          'auto' ,
+    'SKIP_EXISTING':              'True' ,
+    'SKIP_PREVIOUSLY_DOWNLOADED': 'False',
+    'RETRY_ATTEMPTS':             '1'    ,
+    'BULK_WAIT_TIME':             '1'    ,
+    'OVERRIDE_AUTO_WAIT':         'False',
+    'CHUNK_SIZE':                 '20000',
+    'DOWNLOAD_REAL_TIME':         'False',
+    'LANGUAGE':                   'en'   ,
+    'PRINT_SPLASH':               'False',
+    'PRINT_SKIPS':                'True' ,
+    'PRINT_DOWNLOAD_PROGRESS':    'True' ,
+    'PRINT_ERRORS':               'True' ,
+    'PRINT_DOWNLOADS':            'False',
+    'PRINT_API_ERRORS':           'True' ,
+    'PRINT_PROGRESS_INFO':        'True' ,
+    'PRINT_WARNINGS':             'True' ,
+    'TEMP_DOWNLOAD_DIR':          ''     ,   
+}
 
 root_path = Path('.').absolute() / 'output' / 'vc_songs' / 'OGG 320' / id
 
@@ -60,11 +102,12 @@ class Chinofy:
     def login(cls, args):
         """ Authenticates with Spotify and saves credentials to a file """
 
-        user_name = "" # spotify username and password
-        password = ""
+        load_dotenv()
+        username = os.getenv('SPOTIFY_USERNAME')
+        password = os.getenv('SPOTIFY_PASSWORD')
+
         conf = Session.Configuration.Builder().set_store_credentials(False).build()
-        cls.SESSION = Session.Builder(conf).user_pass(user_name, password).create()
-        print("hi")
+        cls.SESSION = Session.Builder(conf).user_pass(username, password).create()
 
     @classmethod
     def get_content_stream(cls, content_id, quality):
@@ -362,6 +405,152 @@ def get_song_info(song_id) -> Tuple[List[str], List[Any], str, str, Any, Any, An
 
 
 
+
+
+def create_download_directory(download_path: str) -> None:
+    """ Create directory and add a hidden file with song ids """
+    Path(download_path).mkdir(parents=True, exist_ok=True)
+
+    # add hidden file with song ids
+    hidden_file_path = PurePath(download_path).joinpath('.song_ids')
+    if not Path(hidden_file_path).is_file():
+        with open(hidden_file_path, 'w', encoding='utf-8') as f:
+            pass
+
+
+def get_previously_downloaded() -> List[str]:
+    """ Returns list of all time downloaded songs """
+
+    ids = []
+    archive_path = CONFIG['SONG_ARCHIVE']
+
+    if Path(archive_path).exists():
+        with open(archive_path, 'r', encoding='utf-8') as f:
+            ids = [line.strip().split('\t')[0] for line in f.readlines()]
+
+    return ids
+
+def get_directory_song_ids(download_path: str) -> List[str]:
+    """ Gets song ids of songs in directory """
+
+    song_ids = []
+
+    hidden_file_path = PurePath(download_path).joinpath('.song_ids')
+    if Path(hidden_file_path).is_file():
+        with open(hidden_file_path, 'r', encoding='utf-8') as file:
+            song_ids.extend([line.strip().split('\t')[0] for line in file.readlines()])
+
+    return song_ids
+
+def get_song_genres(rawartists: List[str], track_name: str) -> List[str]:
+    if CONFIG['MD_SAVE_GENRES']:
+        try:
+            genres = []
+            for data in rawartists:
+                # query artist genres via href, which will be the api url
+                with print("Fetching artist information..."):
+                    (raw, artistInfo) = Chinofy.invoke_url(f'{data['href']}')
+                if CONFIG.get_all_genres() and len(artistInfo['genres']) > 0:
+                    for genre in artistInfo['genres']:
+                        genres.append(genre)
+                elif len(artistInfo['genres']) > 0:
+                    genres.append(artistInfo['genres'][0])
+
+            if len(genres) == 0:
+                print('###    No Genres found for song ' + track_name)
+                genres.append('')
+
+            return genres
+        except Exception as e:
+            raise ValueError(f'Failed to parse GENRES response: {str(e)}\n{raw}')
+    else:
+        return ['']
+
+
+
+
+
+
+def get_song_lyrics(song_id: str, file_save: str) -> None:
+    raw, lyrics = Chinofy.invoke_url(f'https://spclient.wg.spotify.com/color-lyrics/v2/track/{song_id}')
+
+    if lyrics:
+        try:
+            formatted_lyrics = lyrics['lyrics']['lines']
+        except KeyError:
+            raise ValueError(f'Failed to fetch lyrics: {song_id}')
+        if(lyrics['lyrics']['syncType'] == "UNSYNCED"):
+            with open(file_save, 'w+', encoding='utf-8') as file:
+                for line in formatted_lyrics:
+                    file.writelines(line['words'] + '\n')
+            return
+        elif(lyrics['lyrics']['syncType'] == "LINE_SYNCED"):
+            with open(file_save, 'w+', encoding='utf-8') as file:
+                for line in formatted_lyrics:
+                    timestamp = int(line['startTimeMs'])
+                    ts_minutes = str(math.floor(timestamp / 60000)).zfill(2)
+                    ts_seconds = str(math.floor((timestamp % 60000) / 1000)).zfill(2)
+                    ts_millis = str(math.floor(timestamp % 1000))[:2].zfill(2)
+                    file.writelines(f'[{ts_minutes}:{ts_seconds}.{ts_millis}]' + line['words'] + '\n')
+            return
+    raise ValueError(f'Failed to fetch lyrics: {song_id}')
+
+
+
+
+def add_to_archive(song_id: str, filename: str, author_name: str, song_name: str) -> None:
+    """ Adds song id to all time installed songs archive """
+
+    archive_path = CONFIG['SONG_ARCHIVE']
+
+    if Path(archive_path).exists():
+        with open(archive_path, 'a', encoding='utf-8') as file:
+            file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
+    else:
+        with open(archive_path, 'w', encoding='utf-8') as file:
+            file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
+
+
+def add_to_directory_song_ids(download_path: str, song_id: str, filename: str, author_name: str, song_name: str) -> None:
+    """ Appends song_id to .song_ids file in directory """
+
+    hidden_file_path = PurePath(download_path).joinpath('.song_ids')
+    # not checking if file exists because we need an exception
+    # to be raised if something is wrong
+    with open(hidden_file_path, 'a', encoding='utf-8') as file:
+        file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
+
+
+
+def set_audio_tags(filename, artists, genres, name, album_name, release_year, disc_number, track_number) -> None:
+    """ sets music_tag metadata """
+    tags = music_tag.load_file(filename)
+    tags['albumartist'] = artists[0]
+    tags['artist'] = conv_artist_format(artists)
+    tags['genre'] = genres[0] if not CONFIG['MD_ALLGENRES'] else CONFIG['MD_GENREDELIMITER'].join(genres)
+    tags['tracktitle'] = name
+    tags['album'] = album_name
+    tags['year'] = release_year
+    tags['discnumber'] = disc_number
+    tags['tracknumber'] = track_number
+    tags.save()
+
+
+def conv_artist_format(artists) -> str:
+    """ Returns converted artist format """
+    return ', '.join(artists)
+
+def set_music_thumbnail(filename, image_url) -> None:
+    """ Downloads cover artwork """
+    img = requests.get(image_url).content
+    tags = music_tag.load_file(filename)
+    tags['artwork'] = img
+    tags.save()
+
+
+
+
+
 def download_track(mode: str, track_id: str, extra_keys=None, disable_progressbar=False) -> None: # mode can be 'single', 'album', 'playlist', 'liked', 'extplaylist, Im not bothering them for now
     """ Downloads raw song audio from Spotify """
 
@@ -398,8 +587,8 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
         filedir = PurePath(filename).parent
 
         filename_temp = filename
-        if Zotify.CONFIG.get_temp_download_dir() != '':
-            filename_temp = PurePath(Zotify.CONFIG.get_temp_download_dir()).joinpath(f'zotify_{str(uuid.uuid4())}_{track_id}.{ext}')
+        if CONFIG['TEMP_DOWNLOAD_DIR'] != '':
+            filename_temp = PurePath(CONFIG['TEMP_DOWNLOAD_DIR']).joinpath(f'zotify_{str(uuid.uuid4())}_{track_id}.{ext}')
 
         check_name = Path(filename).is_file() and Path(filename).stat().st_size
         check_id = scraped_song_id in get_directory_song_ids(filedir)
@@ -415,56 +604,44 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
             filename = PurePath(filedir).joinpath(f'{fname}_{c}{ext}')
 
     except Exception as e:
-        Printer.print(PrintChannel.ERRORS, '###   SKIPPING SONG - FAILED TO QUERY METADATA   ###')
-        Printer.print(PrintChannel.ERRORS, 'Track_ID: ' + str(track_id))
+        print('###   SKIPPING SONG - FAILED TO QUERY METADATA   ###')
+        print('Track_ID: ' + str(track_id))
         for k in extra_keys:
-            Printer.print(PrintChannel.ERRORS, k + ': ' + str(extra_keys[k]))
-        Printer.print(PrintChannel.ERRORS, "\n")
-        Printer.print(PrintChannel.ERRORS, str(e) + "\n")
-        Printer.print(PrintChannel.ERRORS, "".join(traceback.TracebackException.from_exception(e).format()) + "\n")
+            print(k + ': ' + str(extra_keys[k]))
+        print("\n")
+        print(str(e) + "\n")
+        print("".join(traceback.TracebackException.from_exception(e).format()) + "\n")
 
     else:
         try:
             if not is_playable:
-                prepare_download_loader.stop()
-                Printer.print(PrintChannel.SKIPS, '\n###   SKIPPING: ' + song_name + ' (SONG IS UNAVAILABLE)   ###' + "\n")
+                print('\n###   SKIPPING: ' + song_name + ' (SONG IS UNAVAILABLE)   ###' + "\n")
             else:
-                if check_id and check_name and Zotify.CONFIG.get_skip_existing():
-                    prepare_download_loader.stop()
-                    Printer.print(PrintChannel.SKIPS, '\n###   SKIPPING: ' + song_name + ' (SONG ALREADY EXISTS)   ###' + "\n")
+                if check_id and check_name and CONFIG['SKIP_EXISTING']:
+                    print('\n###   SKIPPING: ' + song_name + ' (SONG ALREADY EXISTS)   ###' + "\n")
 
-                elif check_all_time and Zotify.CONFIG.get_skip_previously_downloaded():
-                    prepare_download_loader.stop()
-                    Printer.print(PrintChannel.SKIPS, '\n###   SKIPPING: ' + song_name + ' (SONG ALREADY DOWNLOADED ONCE)   ###' + "\n")
+                elif check_all_time and CONFIG['SKIP_PREVIOUSLY_DOWNLOADED']:
+                    print('\n###   SKIPPING: ' + song_name + ' (SONG ALREADY DOWNLOADED ONCE)   ###' + "\n")
 
                 else:
                     if track_id != scraped_song_id:
                         track_id = scraped_song_id
                     track = TrackId.from_base62(track_id)
-                    stream = Zotify.get_content_stream(track, Zotify.DOWNLOAD_QUALITY)
+                    stream = Chinofy.get_content_stream(track, Chinofy.DOWNLOAD_QUALITY)
                     create_download_directory(filedir)
                     total_size = stream.input_stream.size
 
-                    prepare_download_loader.stop()
 
                     time_start = time.time()
                     downloaded = 0
-                    with open(filename_temp, 'wb') as file, Printer.progress(
-                            desc=song_name,
-                            total=total_size,
-                            unit='B',
-                            unit_scale=True,
-                            unit_divisor=1024,
-                            disable=disable_progressbar
-                    ) as p_bar:
+                    with open(filename_temp, 'wb') as file:
                         b = 0
                         while b < 5:
-                        #for _ in range(int(total_size / Zotify.CONFIG.get_chunk_size()) + 2):
-                            data = stream.input_stream.stream().read(Zotify.CONFIG.get_chunk_size())
-                            p_bar.update(file.write(data))
+                            data = stream.input_stream.stream().read(CONFIG['CHUNK_SIZE'])
+                            file.write(data)
                             downloaded += len(data)
                             b += 1 if data == b'' else 0
-                            if Zotify.CONFIG.get_download_real_time():
+                            if CONFIG['DOWNLOAD_REAL_TIME']:
                                 delta_real = time.time() - time_start
                                 delta_want = (downloaded / total_size) * (duration_ms/1000)
                                 if delta_want > delta_real:
@@ -474,46 +651,44 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
 
                     genres = get_song_genres(raw_artists, name)
 
-                    if(Zotify.CONFIG.get_download_lyrics()):
+                    if(CONFIG['DOWNLOAD_LYRICS']):
                         try:
                             get_song_lyrics(track_id, PurePath(str(filename)[:-3] + "lrc"))
                         except ValueError:
-                            Printer.print(PrintChannel.SKIPS, f"###   Skipping lyrics for {song_name}: lyrics not available   ###")
+                            print(f"###   Skipping lyrics for {song_name}: lyrics not available   ###")
                     convert_audio_format(filename_temp)
                     try:
                         set_audio_tags(filename_temp, artists, genres, name, album_name, release_year, disc_number, track_number)
                         set_music_thumbnail(filename_temp, image_url)
                     except Exception:
-                        Printer.print(PrintChannel.ERRORS, "Unable to write metadata, ensure ffmpeg is installed and added to your PATH.")
+                        print("Unable to write metadata, ensure ffmpeg is installed and added to your PATH.")
 
                     if filename_temp != filename:
                         Path(filename_temp).rename(filename)
 
                     time_finished = time.time()
 
-                    Printer.print(PrintChannel.DOWNLOADS, f'###   Downloaded "{song_name}" to "{Path(filename).relative_to(Zotify.CONFIG.get_root_path())}" in {fmt_seconds(time_downloaded - time_start)} (plus {fmt_seconds(time_finished - time_downloaded)} converting)   ###' + "\n")
+                    print(f'###   Downloaded "{song_name}" to "{Path(filename).relative_to(CONFIG['ROOT_PATH'])}" in {fmt_seconds(time_downloaded - time_start)} (plus {fmt_seconds(time_finished - time_downloaded)} converting)   ###' + "\n")
 
                     # add song id to archive file
-                    if Zotify.CONFIG.get_skip_previously_downloaded():
+                    if CONFIG['SKIP_PREVIOUSLY_DOWNLOADED']:
                         add_to_archive(scraped_song_id, PurePath(filename).name, artists[0], name)
                     # add song id to download directory's .song_ids file
                     if not check_id:
                         add_to_directory_song_ids(filedir, scraped_song_id, PurePath(filename).name, artists[0], name)
 
-                    if not Zotify.CONFIG.get_bulk_wait_time():
-                        time.sleep(Zotify.CONFIG.get_bulk_wait_time())
+                    if not CONFIG['BULK_WAIT_TIME']:
+                        time.sleep(CONFIG['BULK_WAIT_TIME'])
         except Exception as e:
-            Printer.print(PrintChannel.ERRORS, '###   SKIPPING: ' + song_name + ' (GENERAL DOWNLOAD ERROR)   ###')
-            Printer.print(PrintChannel.ERRORS, 'Track_ID: ' + str(track_id))
+            print('###   SKIPPING: ' + song_name + ' (GENERAL DOWNLOAD ERROR)   ###')
+            print('Track_ID: ' + str(track_id))
             for k in extra_keys:
-                Printer.print(PrintChannel.ERRORS, k + ': ' + str(extra_keys[k]))
-            Printer.print(PrintChannel.ERRORS, "\n")
-            Printer.print(PrintChannel.ERRORS, str(e) + "\n")
-            Printer.print(PrintChannel.ERRORS, "".join(traceback.TracebackException.from_exception(e).format()) + "\n")
+                print(k + ': ' + str(extra_keys[k]))
+            print("\n")
+            print(str(e) + "\n")
+            print("".join(traceback.TracebackException.from_exception(e).format()) + "\n")
             if Path(filename_temp).exists():
                 Path(filename_temp).unlink()
-
-    prepare_download_loader.stop()
 
 
 def convert_audio_format(filename) -> None:
@@ -521,17 +696,17 @@ def convert_audio_format(filename) -> None:
     temp_filename = f'{PurePath(filename).parent}.tmp'
     Path(filename).replace(temp_filename)
 
-    download_format = Zotify.CONFIG.get_download_format().lower()
+    download_format = CONFIG['DOWNLOAD_FORMAT'].lower()
     file_codec = CODEC_MAP.get(download_format, 'copy')
     if file_codec != 'copy':
-        bitrate = Zotify.CONFIG.get_transcode_bitrate()
+        bitrate = CONFIG['TRANSCODE_BITRATE']
         bitrates = {
-            'auto': '320k' if Zotify.check_premium() else '160k',
+            'auto': '320k' if Chinofy.check_premium() else '160k',
             'normal': '96k',
             'high': '160k',
             'very_high': '320k'
         }
-        bitrate = bitrates[Zotify.CONFIG.get_download_quality()]
+        bitrate = bitrates[CONFIG['DOWNLOAD_QUALITY']]
     else:
         bitrate = None
 
@@ -545,11 +720,33 @@ def convert_audio_format(filename) -> None:
             inputs={temp_filename: None},
             outputs={filename: output_params}
         )
-        with Loader(PrintChannel.PROGRESS_INFO, "Converting file..."):
+        with print("Converting file..."):
             ff_m.run()
 
         if Path(temp_filename).exists():
             Path(temp_filename).unlink()
 
     except ffmpy.FFExecutableNotFoundError:
-        Printer.print(PrintChannel.WARNINGS, f'###   SKIPPING {file_codec.upper()} CONVERSION - FFMPEG NOT FOUND   ###')
+        print(f'###   SKIPPING {file_codec.upper()} CONVERSION - FFMPEG NOT FOUND   ###')
+
+def fmt_seconds(secs: float) -> str:
+    val = math.floor(secs)
+
+    s = math.floor(val % 60)
+    val -= s
+    val /= 60
+
+    m = math.floor(val % 60)
+    val -= m
+    val /= 60
+
+    h = math.floor(val)
+
+    if h == 0 and m == 0 and s == 0:
+        return "0s"
+    elif h == 0 and m == 0:
+        return f'{s}s'.zfill(2)
+    elif h == 0:
+        return f'{m}'.zfill(2) + ':' + f'{s}'.zfill(2)
+    else:
+        return f'{h}'.zfill(2) + ':' + f'{m}'.zfill(2) + ':' + f'{s}'.zfill(2)
