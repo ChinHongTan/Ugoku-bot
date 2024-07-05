@@ -646,3 +646,143 @@ def fmt_seconds(secs: float) -> str:
 
 download_track('single', '3mdtjsn20feMaoIaiiIw52') # Testing the function
 print("done")
+
+def regex_input_for_urls(search_input) -> Tuple[str, str, str, str, str, str]:
+    """ Since many kinds of search may be passed at the command line, process them all here. """
+    track_uri_search = re.search(
+        r'^spotify:track:(?P<TrackID>[0-9a-zA-Z]{22})$', search_input)
+    track_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/track/(?P<TrackID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    album_uri_search = re.search(
+        r'^spotify:album:(?P<AlbumID>[0-9a-zA-Z]{22})$', search_input)
+    album_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/album/(?P<AlbumID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    playlist_uri_search = re.search(
+        r'^spotify:playlist:(?P<PlaylistID>[0-9a-zA-Z]{22})$', search_input)
+    playlist_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/playlist/(?P<PlaylistID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    episode_uri_search = re.search(
+        r'^spotify:episode:(?P<EpisodeID>[0-9a-zA-Z]{22})$', search_input)
+    episode_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/episode/(?P<EpisodeID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    show_uri_search = re.search(
+        r'^spotify:show:(?P<ShowID>[0-9a-zA-Z]{22})$', search_input)
+    show_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/show/(?P<ShowID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    artist_uri_search = re.search(
+        r'^spotify:artist:(?P<ArtistID>[0-9a-zA-Z]{22})$', search_input)
+    artist_url_search = re.search(
+        r'^(https?://)?open\.spotify\.com/artist/(?P<ArtistID>[0-9a-zA-Z]{22})(\?si=.+?)?$',
+        search_input,
+    )
+
+    if track_uri_search is not None or track_url_search is not None:
+        track_id_str = (track_uri_search
+                        if track_uri_search is not None else
+                        track_url_search).group('TrackID')
+    else:
+        track_id_str = None
+
+    if album_uri_search is not None or album_url_search is not None:
+        album_id_str = (album_uri_search
+                        if album_uri_search is not None else
+                        album_url_search).group('AlbumID')
+    else:
+        album_id_str = None
+
+    if playlist_uri_search is not None or playlist_url_search is not None:
+        playlist_id_str = (playlist_uri_search
+                           if playlist_uri_search is not None else
+                           playlist_url_search).group('PlaylistID')
+    else:
+        playlist_id_str = None
+
+    if episode_uri_search is not None or episode_url_search is not None:
+        episode_id_str = (episode_uri_search
+                          if episode_uri_search is not None else
+                          episode_url_search).group('EpisodeID')
+    else:
+        episode_id_str = None
+
+    if show_uri_search is not None or show_url_search is not None:
+        show_id_str = (show_uri_search
+                       if show_uri_search is not None else
+                       show_url_search).group('ShowID')
+    else:
+        show_id_str = None
+
+    if artist_uri_search is not None or artist_url_search is not None:
+        artist_id_str = (artist_uri_search
+                         if artist_uri_search is not None else
+                         artist_url_search).group('ArtistID')
+    else:
+        artist_id_str = None
+
+    return track_id_str, album_id_str, playlist_id_str, episode_id_str, show_id_str, artist_id_str
+
+def download_from_urls(urls: list[str]) -> bool:
+    """ Downloads from a list of urls """
+    download = False
+
+    for spotify_url in urls:
+        track_id, album_id, playlist_id, episode_id, show_id, artist_id = regex_input_for_urls(spotify_url)
+
+        if track_id is not None:
+            download = True
+            download_track('single', track_id)
+        """               ### I will get back to them later I promise :<
+        elif artist_id is not None:
+            download = True
+            download_artist_albums(artist_id)
+        elif album_id is not None:
+            download = True
+            download_album(album_id)
+        elif playlist_id is not None:
+            download = True
+            playlist_songs = get_playlist_songs(playlist_id)
+            name, _ = get_playlist_info(playlist_id)
+            enum = 1
+            char_num = len(str(len(playlist_songs)))
+            for song in playlist_songs:
+                if not song[TRACK][NAME] or not song[TRACK][ID]:
+                    Printer.print(PrintChannel.SKIPS, '###   SKIPPING:  SONG DOES NOT EXIST ANYMORE   ###' + "\n")
+                else:
+                    if song[TRACK][TYPE] == "episode": # Playlist item is a podcast episode
+                        download_episode(song[TRACK][ID])
+                    else:
+                        download_track('playlist', song[TRACK][ID], extra_keys=
+                        {
+                            'playlist_song_name': song[TRACK][NAME],
+                            'playlist': name,
+                            'playlist_num': str(enum).zfill(char_num),
+                            'playlist_id': playlist_id,
+                            'playlist_track_id': song[TRACK][ID]
+                        })
+                    enum += 1
+        elif episode_id is not None:
+            download = True
+            download_episode(episode_id)
+        elif show_id is not None:
+            download = True
+            for episode in get_show_episodes(show_id):
+                download_episode(episode)
+        """
+
+    return download
+
+download_from_urls(["https://open.spotify.com/track/57Bv7VXc2IHBfznHUoOTOM?si=2ca5cba195164a4f"]) # Testing the function
