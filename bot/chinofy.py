@@ -183,63 +183,28 @@ class Chinofy:
 
 
 
-def search(search_term: str):
+def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'track,album,artist,playlist'):
     """ Searches download server's API for relevant data """
-    params = {'limit': '10',
-              'offset': '0',
-              'q': search_term,
-              'type': 'track,album,artist,playlist'}
 
-    # Parse args, $ Chinono: might remove later
-    splits = search_term.split()
-    for split in splits:
-        index = splits.index(split)
+    # Parse args
 
-        if split[0] == '-' and len(split) > 1:
-            if len(splits)-1 == index:
-                raise IndexError('No parameters passed after option: {}\n'.
-                                 format(split))
+    if type != 'track,album,artist,playlist':
+        allowed_types = ['track', 'playlist', 'album', 'artist']
+        if type not in allowed_types:
+            raise ValueError('Parameters passed after type option must be from this list:\n{}'.
+                format('\n'.join(allowed_types)))
 
-        if split == '-l' or split == '-limit':
-            try:
-                int(splits[index+1])
-            except ValueError:
-                raise ValueError('Parameter passed after {} option must be an integer.\n'.
-                                 format(split))
-            if int(splits[index+1]) > 50:
-                raise ValueError('Invalid limit passed. Max is 50.\n')
-            params['limit'] = splits[index+1]
-
-        if split == '-t' or split == '-type':
-
-            allowed_types = ['track', 'playlist', 'album', 'artist']
-            passed_types = []
-            for i in range(index+1, len(splits)):
-                if splits[i][0] == '-':
-                    break
-
-                if splits[i] not in allowed_types:
-                    raise ValueError('Parameters passed after {} option must be from this list:\n{}'.
-                                     format(split, '\n'.join(allowed_types)))
-
-                passed_types.append(splits[i])
-            params['type'] = ','.join(passed_types)
-
-    if len(params['type']) == 0:
-        params['type'] = 'track,album,artist,playlist'
-
-    # Clean search term   # Chinono: I'm not sure what this does, so Im leaving it here for now
-    search_term_list = []
-    for split in splits:
-        if split[0] == "-":
-            break
-        search_term_list.append(split)
-    if not search_term_list:
+    if not search_term:
         raise ValueError("Invalid query.")
-    params["q"] = ' '.join(search_term_list)
 
     """ Returns search results from Spotify API """
     # It just prints all the data for now, I will implement a way to return the data later
+    params = {
+        'q': search_term,
+        'type': type,
+        'limit': limit,
+        'offset': offset
+    }
     resp = Chinofy.invoke_url_with_params(SEARCH_URL, **params)
 
     counter = 1
@@ -341,7 +306,7 @@ def search(search_term: str):
     
 
 # I really have no idea why the args is here, but Im not touching it for now
-Chinofy(args=None)
+Chinofy()
 search("pikasonic") # Testing the function
 
 
@@ -490,21 +455,6 @@ def get_song_lyrics(song_id: str, file_save: str) -> None:
     raise ValueError(f'Failed to fetch lyrics: {song_id}')
 
 
-
-
-def add_to_archive(song_id: str, filename: str, author_name: str, song_name: str) -> None:
-    """ Adds song id to all time installed songs archive """
-
-    archive_path = CONFIG['SONG_ARCHIVE']
-
-    if Path(archive_path).exists():
-        with open(archive_path, 'a', encoding='utf-8') as file:
-            file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
-    else:
-        with open(archive_path, 'w', encoding='utf-8') as file:
-            file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
-
-
 def add_to_directory_song_ids(download_path: str, song_id: str, filename: str, author_name: str, song_name: str) -> None:
     """ Appends song_id to .song_ids file in directory """
 
@@ -541,10 +491,6 @@ def set_music_thumbnail(filename, image_url) -> None:
     tags['artwork'] = img
     tags.save()
 
-
-
-
-
 def download_track(mode: str, track_id: str, extra_keys=None, disable_progressbar=False) -> None: # mode can be 'single', 'album', 'playlist', 'liked', 'extplaylist, Im not bothering them for now
     """ Downloads raw song audio from Spotify """
 
@@ -579,7 +525,6 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
         filename = PurePath(CONFIG['ROOT_PATH']).joinpath(output_template)
         filedir = PurePath(filename).parent
 
-        print(filename, filedir)
         filename_temp = filename
         if CONFIG['TEMP_DOWNLOAD_DIR'] != '':
             filename_temp = PurePath(CONFIG['TEMP_DOWNLOAD_DIR']).joinpath(f'zotify_{str(uuid.uuid4())}_{track_id}.{ext}')
