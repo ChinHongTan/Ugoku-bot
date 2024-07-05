@@ -11,6 +11,7 @@ import os
 from dotenv import load_dotenv
 from librespot.core import Session
 from librespot.audio.decoders import VorbisOnlyAudioQuality
+from librespot.audio.decoders import AudioQuality
 from librespot.metadata import TrackId
 import requests
 import json
@@ -54,49 +55,54 @@ EXT_MAP = {
     'vorbis': 'ogg',
 }
 
+id: str = str(datetime.datetime.timestamp(datetime.datetime.now())).replace('.', '')
+
 CONFIG = {
-    'SAVE_CREDENTIALS':           'True' ,
-    'CREDENTIALS_LOCATION':       ''     ,
-    'OUTPUT':                     ''     ,
-    'SONG_ARCHIVE':               ''     ,
-    'ROOT_PATH':                  ''     ,
-    'ROOT_PODCAST_PATH':          ''     ,
-    'SPLIT_ALBUM_DISCS':          'False',
-    'DOWNLOAD_LYRICS':            'True' ,
-    'MD_SAVE_GENRES':             'False',
-    'MD_ALLGENRES':               'False',
-    'MD_GENREDELIMITER':          ','    ,
-    'DOWNLOAD_FORMAT':            'ogg'  ,
-    'DOWNLOAD_QUALITY':           'auto' ,
-    'TRANSCODE_BITRATE':          'auto' ,
-    'SKIP_EXISTING':              'True' ,
-    'SKIP_PREVIOUSLY_DOWNLOADED': 'False',
-    'RETRY_ATTEMPTS':             '1'    ,
-    'BULK_WAIT_TIME':             '1'    ,
-    'OVERRIDE_AUTO_WAIT':         'False',
-    'CHUNK_SIZE':                 '20000',
-    'DOWNLOAD_REAL_TIME':         'False',
-    'LANGUAGE':                   'en'   ,
-    'PRINT_SPLASH':               'False',
-    'PRINT_SKIPS':                'True' ,
-    'PRINT_DOWNLOAD_PROGRESS':    'True' ,
-    'PRINT_ERRORS':               'True' ,
-    'PRINT_DOWNLOADS':            'False',
-    'PRINT_API_ERRORS':           'True' ,
-    'PRINT_PROGRESS_INFO':        'True' ,
-    'PRINT_WARNINGS':             'True' ,
-    'TEMP_DOWNLOAD_DIR':          ''     ,   
+    'SAVE_CREDENTIALS':           True                                                              ,
+    'CREDENTIALS_LOCATION':       ''                                                                ,
+    'OUTPUT':                     ''                                                                ,
+    'SONG_ARCHIVE':               ''                                                                ,
+    'ROOT_PATH':                  Path('.').absolute() / 'output' / 'vc_songs' / 'OGG 320' / id     ,
+    'ROOT_PODCAST_PATH':          ''                                                                ,
+    'SPLIT_ALBUM_DISCS':          False                                                             ,
+    'DOWNLOAD_LYRICS':            True                                                              ,
+    'MD_SAVE_GENRES':             False                                                             ,
+    'MD_ALLGENRES':               False                                                             ,
+    'MD_GENREDELIMITER':          ','                                                               ,
+    'DOWNLOAD_FORMAT':            'ogg'                                                             ,
+    'DOWNLOAD_QUALITY':           'auto'                                                            ,
+    'TRANSCODE_BITRATE':          'auto'                                                            ,
+    'RETRY_ATTEMPTS':             1                                                                 ,
+    'BULK_WAIT_TIME':             1                                                                 ,
+    'OVERRIDE_AUTO_WAIT':         False                                                             ,
+    'CHUNK_SIZE':                 20000                                                             ,
+    'DOWNLOAD_REAL_TIME':         False                                                             ,
+    'LANGUAGE':                   'en'                                                              ,
+    'PRINT_SPLASH':               False                                                             ,
+    'PRINT_SKIPS':                True                                                              ,
+    'PRINT_DOWNLOAD_PROGRESS':    True                                                              ,
+    'PRINT_ERRORS':               True                                                              ,
+    'PRINT_DOWNLOADS':            False                                                             ,
+    'PRINT_API_ERRORS':           True                                                              ,
+    'PRINT_PROGRESS_INFO':        True                                                              ,
+    'PRINT_WARNINGS':             True                                                              ,
+    'TEMP_DOWNLOAD_DIR':          ''                                                                ,
 }
 
-root_path = Path('.').absolute() / 'output' / 'vc_songs' / 'OGG 320' / id
 
 # Im renaming the class from Zotify to Chinofy because why not XD
 class Chinofy:    
     SESSION: Session = None
-    DOWNLOAD_QUALITY = None
 
     def __init__(self, args):
         Chinofy.login(args)
+        self.quality_options = {
+            'auto': AudioQuality.VERY_HIGH if self.check_premium() else AudioQuality.HIGH,
+            'normal': AudioQuality.NORMAL,
+            'high': AudioQuality.HIGH,
+            'very_high': AudioQuality.VERY_HIGH
+        }
+        Chinofy.DOWNLOAD_QUALITY = self.quality_options[CONFIG['DOWNLOAD_QUALITY']]
 
     @classmethod
     def login(cls, args):
@@ -156,7 +162,7 @@ class Chinofy:
             responsejson = {"error": {"status": "unknown", "message": "received an empty response"}}
 
         if not responsejson or 'error' in responsejson:
-            if tryCount < (cls.CONFIG.get_retry_attempts() - 1):
+            if tryCount < (CONFIG['RETRY_ATTEMPTS'] - 1):
                 Printer.print(PrintChannel.WARNINGS, f"Spotify API Error (try {tryCount + 1}) ({responsejson['error']['status']}): {responsejson['error']['message']}")
                 time.sleep(5)
                 return cls.invoke_url(url, tryCount + 1)
@@ -418,18 +424,6 @@ def create_download_directory(download_path: str) -> None:
             pass
 
 
-def get_previously_downloaded() -> List[str]:
-    """ Returns list of all time downloaded songs """
-
-    ids = []
-    archive_path = CONFIG['SONG_ARCHIVE']
-
-    if Path(archive_path).exists():
-        with open(archive_path, 'r', encoding='utf-8') as f:
-            ids = [line.strip().split('\t')[0] for line in f.readlines()]
-
-    return ids
-
 def get_directory_song_ids(download_path: str) -> List[str]:
     """ Gets song ids of songs in directory """
 
@@ -570,8 +564,7 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
         for k in extra_keys:
             output_template = output_template.replace("{"+k+"}", fix_filename(extra_keys[k]))
 
-        # ext = EXT_MAP.get(Zotify.CONFIG.get_download_format().lower())
-        ext = 'ogg' # Chinono: I will just hardcode this for now   # copilot knows exactly what Im going to write XDDDD
+        ext = EXT_MAP.get(CONFIG['DOWNLOAD_FORMAT'].lower())
 
         output_template = output_template.replace("{artist}", fix_filename(artists[0]))
         output_template = output_template.replace("{album}", fix_filename(album_name))
@@ -583,16 +576,16 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
         output_template = output_template.replace("{track_id}", fix_filename(track_id))
         output_template = output_template.replace("{ext}", ext)
 
-        filename = PurePath(root_path).joinpath(output_template)
+        filename = PurePath(CONFIG['ROOT_PATH']).joinpath(output_template)
         filedir = PurePath(filename).parent
 
+        print(filename, filedir)
         filename_temp = filename
         if CONFIG['TEMP_DOWNLOAD_DIR'] != '':
             filename_temp = PurePath(CONFIG['TEMP_DOWNLOAD_DIR']).joinpath(f'zotify_{str(uuid.uuid4())}_{track_id}.{ext}')
 
         check_name = Path(filename).is_file() and Path(filename).stat().st_size
         check_id = scraped_song_id in get_directory_song_ids(filedir)
-        check_all_time = scraped_song_id in get_previously_downloaded()
 
         # a song with the same name is installed
         if not check_id and check_name:
@@ -617,68 +610,58 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
             if not is_playable:
                 print('\n###   SKIPPING: ' + song_name + ' (SONG IS UNAVAILABLE)   ###' + "\n")
             else:
-                if check_id and check_name and CONFIG['SKIP_EXISTING']:
-                    print('\n###   SKIPPING: ' + song_name + ' (SONG ALREADY EXISTS)   ###' + "\n")
-
-                elif check_all_time and CONFIG['SKIP_PREVIOUSLY_DOWNLOADED']:
-                    print('\n###   SKIPPING: ' + song_name + ' (SONG ALREADY DOWNLOADED ONCE)   ###' + "\n")
-
-                else:
-                    if track_id != scraped_song_id:
-                        track_id = scraped_song_id
-                    track = TrackId.from_base62(track_id)
-                    stream = Chinofy.get_content_stream(track, Chinofy.DOWNLOAD_QUALITY)
-                    create_download_directory(filedir)
-                    total_size = stream.input_stream.size
+                if track_id != scraped_song_id:
+                    track_id = scraped_song_id
+                track = TrackId.from_base62(track_id)
+                stream = Chinofy.get_content_stream(track, Chinofy.DOWNLOAD_QUALITY)
+                create_download_directory(filedir)
+                total_size = stream.input_stream.size
 
 
-                    time_start = time.time()
-                    downloaded = 0
-                    with open(filename_temp, 'wb') as file:
-                        b = 0
-                        while b < 5:
-                            data = stream.input_stream.stream().read(CONFIG['CHUNK_SIZE'])
-                            file.write(data)
-                            downloaded += len(data)
-                            b += 1 if data == b'' else 0
-                            if CONFIG['DOWNLOAD_REAL_TIME']:
-                                delta_real = time.time() - time_start
-                                delta_want = (downloaded / total_size) * (duration_ms/1000)
-                                if delta_want > delta_real:
-                                    time.sleep(delta_want - delta_real)
+                time_start = time.time()
+                downloaded = 0
+                with open(filename_temp, 'wb') as file:
+                    b = 0
+                    while b < 5:
+                        data = stream.input_stream.stream().read(CONFIG['CHUNK_SIZE'])
+                        file.write(data)
+                        downloaded += len(data)
+                        b += 1 if data == b'' else 0
+                        if CONFIG['DOWNLOAD_REAL_TIME']:
+                            delta_real = time.time() - time_start
+                            delta_want = (downloaded / total_size) * (duration_ms/1000)
+                            if delta_want > delta_real:
+                                time.sleep(delta_want - delta_real)
 
-                    time_downloaded = time.time()
+                time_downloaded = time.time()
 
-                    genres = get_song_genres(raw_artists, name)
+                genres = get_song_genres(raw_artists, name)
 
-                    if(CONFIG['DOWNLOAD_LYRICS']):
-                        try:
-                            get_song_lyrics(track_id, PurePath(str(filename)[:-3] + "lrc"))
-                        except ValueError:
-                            print(f"###   Skipping lyrics for {song_name}: lyrics not available   ###")
-                    convert_audio_format(filename_temp)
+                if(CONFIG['DOWNLOAD_LYRICS']):
                     try:
-                        set_audio_tags(filename_temp, artists, genres, name, album_name, release_year, disc_number, track_number)
-                        set_music_thumbnail(filename_temp, image_url)
-                    except Exception:
-                        print("Unable to write metadata, ensure ffmpeg is installed and added to your PATH.")
+                        get_song_lyrics(track_id, PurePath(str(filename)[:-3] + "lrc"))
+                    except ValueError:
+                        print(f"###   Skipping lyrics for {song_name}: lyrics not available   ###")
+                convert_audio_format(filename_temp)
+                try:
+                    set_audio_tags(filename_temp, artists, genres, name, album_name, release_year, disc_number, track_number)
+                    set_music_thumbnail(filename_temp, image_url)
+                except Exception:
+                    print("Unable to write metadata, ensure ffmpeg is installed and added to your PATH.")
 
-                    if filename_temp != filename:
-                        Path(filename_temp).rename(filename)
+                if filename_temp != filename:
+                    Path(filename_temp).rename(filename)
 
-                    time_finished = time.time()
+                time_finished = time.time()
 
-                    print(f'###   Downloaded "{song_name}" to "{Path(filename).relative_to(CONFIG['ROOT_PATH'])}" in {fmt_seconds(time_downloaded - time_start)} (plus {fmt_seconds(time_finished - time_downloaded)} converting)   ###' + "\n")
+                print(f'###   Downloaded "{song_name}" to "{Path(filename).relative_to(CONFIG['ROOT_PATH'])}" in {fmt_seconds(time_downloaded - time_start)} (plus {fmt_seconds(time_finished - time_downloaded)} converting)   ###' + "\n")
 
-                    # add song id to archive file
-                    if CONFIG['SKIP_PREVIOUSLY_DOWNLOADED']:
-                        add_to_archive(scraped_song_id, PurePath(filename).name, artists[0], name)
-                    # add song id to download directory's .song_ids file
-                    if not check_id:
-                        add_to_directory_song_ids(filedir, scraped_song_id, PurePath(filename).name, artists[0], name)
+                # add song id to download directory's .song_ids file
+                if not check_id:
+                    add_to_directory_song_ids(filedir, scraped_song_id, PurePath(filename).name, artists[0], name)
 
-                    if not CONFIG['BULK_WAIT_TIME']:
-                        time.sleep(CONFIG['BULK_WAIT_TIME'])
+                if not CONFIG['BULK_WAIT_TIME']:
+                    time.sleep(CONFIG['BULK_WAIT_TIME'])
         except Exception as e:
             print('###   SKIPPING: ' + song_name + ' (GENERAL DOWNLOAD ERROR)   ###')
             print('Track_ID: ' + str(track_id))
@@ -720,8 +703,8 @@ def convert_audio_format(filename) -> None:
             inputs={temp_filename: None},
             outputs={filename: output_params}
         )
-        with print("Converting file..."):
-            ff_m.run()
+        print("Converting file...")
+        ff_m.run()
 
         if Path(temp_filename).exists():
             Path(temp_filename).unlink()
@@ -750,3 +733,7 @@ def fmt_seconds(secs: float) -> str:
         return f'{m}'.zfill(2) + ':' + f'{s}'.zfill(2)
     else:
         return f'{h}'.zfill(2) + ':' + f'{m}'.zfill(2) + ':' + f'{s}'.zfill(2)
+    
+
+download_track('single', '3mdtjsn20feMaoIaiiIw52') # Testing the function
+print("done")
