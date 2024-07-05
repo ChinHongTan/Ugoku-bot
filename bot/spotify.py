@@ -39,7 +39,21 @@ class SpotifyDownloader:
         return all_data
 
     def from_query(self, query: str) -> None:
-        raise NotImplementedError
+        load_dotenv()
+        username = os.getenv('SPOTIFY_USERNAME')
+        password = os.getenv('SPOTIFY_PASSWORD')
+        output_file= Path('.').absolute() / 'example.txt'
+        with open(output_file, 'w+') as f:
+            subprocess.run(
+                f'zotify -s "{query}" --username "{username}" --password "{password}"',
+                stdout=f,
+                shell=True
+            )
+        with open(output_file, 'r') as f:
+            lines=f.readlines()
+            result=lines[4].split('|')
+            for i in range(len(result)):
+                print(result[i].strip())
 
     def clean(self) -> None:
         folder = Path('.').absolute() / 'output' / 'vc_songs' / 'OGG 320'
