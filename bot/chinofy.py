@@ -94,7 +94,7 @@ CONFIG = {
 class Chinofy:    
     SESSION: Session = None
 
-    def __init__(self, args):
+    def __init__(self, args=None):
         Chinofy.login(args)
         self.quality_options = {
             'auto': AudioQuality.VERY_HIGH if self.check_premium() else AudioQuality.HIGH,
@@ -183,16 +183,14 @@ class Chinofy:
 
 
 
-def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'track,album,artist,playlist'):
+def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['track','album','artist','playlist']):
     """ Searches download server's API for relevant data """
 
     # Parse args
-
-    if type != 'track,album,artist,playlist':
-        allowed_types = ['track', 'playlist', 'album', 'artist']
-        if type not in allowed_types:
-            raise ValueError('Parameters passed after type option must be from this list:\n{}'.
-                format('\n'.join(allowed_types)))
+    allowed_types = ['track', 'playlist', 'album', 'artist']
+    if not type <= allowed_types:      # if type is not a subset of allowed_types
+        raise ValueError('Parameters passed after type option must be from this list:\n{}'.
+            format('\n'.join(allowed_types)))
 
     if not search_term:
         raise ValueError("Invalid query.")
@@ -201,9 +199,9 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
     # It just prints all the data for now, I will implement a way to return the data later
     params = {
         'q': search_term,
-        'type': type,
-        'limit': limit,
-        'offset': offset
+        'type': ','.join(type),
+        'limit': str(limit),
+        'offset': str(offset)
     }
     resp = Chinofy.invoke_url_with_params(SEARCH_URL, **params)
 
@@ -212,7 +210,7 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
 
     """ Tracks section """
     total_tracks = 0
-    if 'track' in params['type'].split(','):
+    if 'track' in type:
         tracks = resp['tracks']['items']
         if len(tracks) > 0:
             print('###  TRACKS  ###')
@@ -233,13 +231,10 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
 
                 counter += 1
             total_tracks = counter - 1
-            print(track_data)
-            del tracks
-            del track_data
 
     """ Albums section """
     total_albums = 0
-    if 'album' in params['type'].split(','):
+    if 'album' in type:
         albums = resp['albums']['items']
         if len(albums) > 0:
             print('###  ALBUMS  ###')
@@ -255,13 +250,10 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
 
                 counter += 1
             total_albums = counter - total_tracks - 1
-            print(album_data)
-            del albums
-            del album_data
 
     """ Artist section """
     total_artists = 0
-    if 'artist' in params['type'].split(','):
+    if 'artist' in type:
         artists = resp['artists']['items']
         if len(artists) > 0:
             print('###  ARTISTS  ###')
@@ -275,13 +267,10 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
                 })
                 counter += 1
             total_artists = counter - total_tracks - total_albums - 1
-            print(artist_data)
-            del artists
-            del artist_data
 
     """ Playlist section """
     total_playlists = 0
-    if 'playlist' in params['type'].split(','):
+    if 'playlist' in type:
         playlists = resp['playlists']['items']
         if len(playlists) > 0:
             print('###  PLAYLISTS  ###')
@@ -296,18 +285,14 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: str = 'trac
                 })
                 counter += 1
             total_playlists = counter - total_artists - total_tracks - total_albums - 1
-            print(playlist_data)
-            del playlists
-            del playlist_data
 
     if total_tracks + total_albums + total_artists + total_playlists == 0:
         print('NO RESULTS FOUND - EXITING...')
         return
+    return (dics)
     
-
-# I really have no idea why the args is here, but Im not touching it for now
 Chinofy()
-search("pikasonic") # Testing the function
+print(search("pikasonic")) # Testing the function
 
 
 
@@ -334,13 +319,6 @@ def fix_filename(name):
         return re.sub(r'[/\0]', "_", str(name))
     else: # MacOS
         return re.sub(r'[/:\0]', "_", str(name))
-
-
-
-
-
-
-
 
 def get_song_info(song_id) -> Tuple[List[str], List[Any], str, str, Any, Any, Any, Any, Any, Any, int]: # Chinono: WTF is this long list of Any XDD
     """ Retrieves metadata for downloaded songs """
@@ -374,10 +352,6 @@ def get_song_info(song_id) -> Tuple[List[str], List[Any], str, str, Any, Any, An
     except Exception as e:
         raise ValueError(f'Failed to parse TRACKS_URL response: {str(e)}\n{raw}')
 
-
-
-
-
 def create_download_directory(download_path: str) -> None:
     """ Create directory and add a hidden file with song ids """
     Path(download_path).mkdir(parents=True, exist_ok=True)
@@ -387,7 +361,6 @@ def create_download_directory(download_path: str) -> None:
     if not Path(hidden_file_path).is_file():
         with open(hidden_file_path, 'w', encoding='utf-8') as f:
             pass
-
 
 def get_directory_song_ids(download_path: str) -> List[str]:
     """ Gets song ids of songs in directory """
@@ -425,11 +398,6 @@ def get_song_genres(rawartists: List[str], track_name: str) -> List[str]:
     else:
         return ['']
 
-
-
-
-
-
 def get_song_lyrics(song_id: str, file_save: str) -> None:
     raw, lyrics = Chinofy.invoke_url(f'https://spclient.wg.spotify.com/color-lyrics/v2/track/{song_id}')
 
@@ -464,8 +432,6 @@ def add_to_directory_song_ids(download_path: str, song_id: str, filename: str, a
     with open(hidden_file_path, 'a', encoding='utf-8') as file:
         file.write(f'{song_id}\t{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}\t{author_name}\t{song_name}\t{filename}\n')
 
-
-
 def set_audio_tags(filename, artists, genres, name, album_name, release_year, disc_number, track_number) -> None:
     """ sets music_tag metadata """
     tags = music_tag.load_file(filename)
@@ -478,7 +444,6 @@ def set_audio_tags(filename, artists, genres, name, album_name, release_year, di
     tags['discnumber'] = disc_number
     tags['tracknumber'] = track_number
     tags.save()
-
 
 def conv_artist_format(artists) -> str:
     """ Returns converted artist format """
@@ -617,7 +582,6 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
             print("".join(traceback.TracebackException.from_exception(e).format()) + "\n")
             if Path(filename_temp).exists():
                 Path(filename_temp).unlink()
-
 
 def convert_audio_format(filename) -> None:
     """ Converts raw audio into playable file """
