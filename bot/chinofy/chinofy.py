@@ -9,12 +9,11 @@ from dotenv import load_dotenv
 from librespot.core import Session
 from librespot.audio.decoders import VorbisOnlyAudioQuality
 from librespot.audio.decoders import AudioQuality
-from librespot.metadata import TrackId
 import requests
 import json
 import time
 
-from config import CONFIG
+from bot.chinofy.config import CONFIG
 
 """ URLs to interact with Spotify API """
 FOLLOWED_ARTISTS_URL = 'https://api.spotify.com/v1/me/following?type=artist'

@@ -4,9 +4,9 @@ from typing import Optional, Tuple
 
 from librespot.metadata import EpisodeId
 
-from config import CONFIG
-from utils import create_download_directory, fix_filename
-from chinofy import Chinofy
+from bot.chinofy.config import CONFIG
+from bot.chinofy.utils import create_download_directory, fix_filename
+from bot.chinofy.chinofy import Chinofy
 
 
 EPISODE_INFO_URL = 'https://api.spotify.com/v1/episodes'

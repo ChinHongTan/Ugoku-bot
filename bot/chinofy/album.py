@@ -1,6 +1,6 @@
-from chinofy import Chinofy
-from track import download_track
-from utils import fix_filename
+from bot.chinofy.chinofy import Chinofy
+from bot.chinofy.track import download_track
+from bot.chinofy.utils import fix_filename
 
 
 ALBUM_URL = 'https://api.spotify.com/v1/albums'

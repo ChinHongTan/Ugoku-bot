@@ -1,13 +1,15 @@
-from album import download_album, download_artist_albums
-from podcast import download_episode, get_show_episodes
-from playlist import get_playlist_info, get_playlist_songs
-from track import download_track
-from utils import regex_input_for_urls
-from chinofy import Chinofy
+from pathlib import Path
+from typing import Tuple
+from bot.chinofy.album import download_album, download_artist_albums
+from bot.chinofy.podcast import download_episode, get_show_episodes
+from bot.chinofy.playlist import get_playlist_info, get_playlist_songs
+from bot.chinofy.track import download_track
+from bot.chinofy.utils import regex_input_for_urls
+from bot.chinofy.chinofy import Chinofy
 
 SEARCH_URL = 'https://api.spotify.com/v1/search'
 
-def download_from_urls(urls: list[str]) -> bool:
+def download_from_urls(urls: list[str]) -> Tuple[bool, str, Path | None]:
     """ Downloads from a list of urls """
     download = False
 
@@ -15,8 +17,9 @@ def download_from_urls(urls: list[str]) -> bool:
         track_id, album_id, playlist_id, episode_id, show_id, artist_id = regex_input_for_urls(spotify_url)
 
         if track_id is not None:
-            download = True
-            download_track('single', track_id)             
+            info, path = download_track('single', track_id)     
+            if info:
+                download = True        
         elif artist_id is not None:
             download = True
             download_artist_albums(artist_id)
@@ -54,12 +57,7 @@ def download_from_urls(urls: list[str]) -> bool:
                 download_episode(episode)
         
 
-    return download
-
-# Chinofy()
-# download_from_urls(["https://open.spotify.com/track/57Bv7VXc2IHBfznHUoOTOM?si=2ca5cba195164a4f"]) # Testing the function
-# download_from_urls(["https://open.spotify.com/album/13xiFFc0cBN88k8Nb3X9oR?si=Pp8hpC3-RoSezbRwI_lUmQ"]) # for album
-# download_from_urls(["https://open.spotify.com/episode/72MGWsCUCg8PkuoAlzYdoA?si=ed7ad39fdfee4900"]) # for episode
+    return download, info, path
 
 def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['track','album','artist','playlist']):
     """ Searches download server's API for relevant data """
@@ -168,6 +166,3 @@ def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['tr
         print('NO RESULTS FOUND - EXITING...')
         return
     return (dics)
-    
-# Chinofy()
-# print(search("pikasonic")) # Testing the function

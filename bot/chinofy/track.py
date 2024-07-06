@@ -8,10 +8,10 @@ import ffmpy
 from typing import Any, List, Tuple
 from librespot.metadata import TrackId
 
-from chinofy import Chinofy
-from config import CONFIG
-from const import CODEC_MAP, EXT_MAP
-from utils import add_to_directory_song_ids, create_download_directory, fix_filename, fmt_seconds, get_directory_song_ids, set_audio_tags, set_music_thumbnail
+from bot.chinofy.chinofy import Chinofy
+from bot.chinofy.config import CONFIG
+from bot.chinofy.const import CODEC_MAP, EXT_MAP
+from bot.chinofy.utils import add_to_directory_song_ids, create_download_directory, fix_filename, fmt_seconds, get_directory_song_ids, set_audio_tags, set_music_thumbnail
 
 TRACKS_URL = 'https://api.spotify.com/v1/tracks'
 
@@ -118,8 +118,8 @@ def get_output_template(mode: str) -> str:
     else:
         raise ValueError(f'Invalid mode: {mode}')
 
-def download_track(mode: str, track_id: str, extra_keys=None) -> None: # mode can be 'single', 'album', 'playlist', 'liked', 'extplaylist, Im not bothering them for now
-    """ Downloads raw song audio from Spotify """
+def download_track(mode: str, track_id: str, extra_keys=None) -> Tuple[str, Path] | None:
+    """ Downloads raw song audio from Spotify, returns song name if successful """
 
     if extra_keys is None:
         extra_keys = {}
@@ -176,11 +176,13 @@ def download_track(mode: str, track_id: str, extra_keys=None) -> None: # mode ca
         print("\n")
         print(str(e) + "\n")
         print("".join(traceback.TracebackException.from_exception(e).format()) + "\n")
+        return None
 
     else:
         try:
             if not is_playable:
                 print('\n###   SKIPPING: ' + song_name + ' (SONG IS UNAVAILABLE)   ###' + "\n")
+                return None
             else:
                 if track_id != scraped_song_id:
                     track_id = scraped_song_id
@@ -234,6 +236,7 @@ def download_track(mode: str, track_id: str, extra_keys=None) -> None: # mode ca
 
                 if not CONFIG['BULK_WAIT_TIME']:
                     time.sleep(CONFIG['BULK_WAIT_TIME'])
+                return song_name, Path(filename)
         except Exception as e:
             print('###   SKIPPING: ' + song_name + ' (GENERAL DOWNLOAD ERROR)   ###')
             print('Track_ID: ' + str(track_id))

@@ -1,5 +1,5 @@
-from track import download_track
-from chinofy import Chinofy
+from bot.chinofy.track import download_track
+from bot.chinofy.chinofy import Chinofy
 
 PLAYLISTS_URL = 'https://api.spotify.com/v1/playlists'
 
