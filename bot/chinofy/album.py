@@ -47,7 +47,7 @@ def download_album(album):
     artist, album_name = get_album_name(album)
     tracks = get_album_tracks(album)
     for n, track in enumerate(tracks, 1):
-        download_track('album', track['id'], extra_keys={'album_num': str(n).zfill(2), 'artist': artist, 'album': album_name, 'album_id': album}, disable_progressbar=True)
+        download_track('album', track['id'], extra_keys={'album_num': str(n).zfill(2), 'artist': artist, 'album': album_name, 'album_id': album})
 
 
 def download_artist_albums(artist):

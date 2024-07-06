@@ -4,9 +4,6 @@ Functions that are not needed are removed.
 Original codebase can be found here:
 https://github.com/zotify-dev/zotify """
 
-
-# For now Im just pasting all code into one single giant file, I will split it up later
-
 import os
 from dotenv import load_dotenv
 from librespot.core import Session

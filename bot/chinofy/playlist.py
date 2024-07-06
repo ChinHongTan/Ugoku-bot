@@ -32,5 +32,5 @@ def download_playlist(playlist):
     playlist_songs = [song for song in get_playlist_songs(playlist['id']) if song['track'] is not None and song['track']['id']]
     enum = 1
     for song in playlist_songs:
-        download_track('extplaylist', song['track']['id'], extra_keys={'playlist': playlist['name'], 'playlist_num': str(enum).zfill(2)}, disable_progressbar=True)
+        download_track('extplaylist', song['track']['id'], extra_keys={'playlist': playlist['name'], 'playlist_num': str(enum).zfill(2)})
         enum += 1

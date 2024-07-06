@@ -15,6 +15,12 @@ from utils import add_to_directory_song_ids, create_download_directory, fix_file
 
 TRACKS_URL = 'https://api.spotify.com/v1/tracks'
 
+OUTPUT_DEFAULT_PLAYLIST = '{playlist}/{artist} - {song_name}.{ext}'
+OUTPUT_DEFAULT_PLAYLIST_EXT = '{playlist}/{playlist_num} - {artist} - {song_name}.{ext}'
+OUTPUT_DEFAULT_LIKED_SONGS = 'Liked Songs/{artist} - {song_name}.{ext}'
+OUTPUT_DEFAULT_SINGLE = '{artist}/{album}/{artist} - {song_name}.{ext}'
+OUTPUT_DEFAULT_ALBUM = '{artist}/{album}/{album_num} - {artist} - {song_name}.{ext}'
+
 def get_song_info(song_id) -> Tuple[List[str], List[Any], str, str, Any, Any, Any, Any, Any, Any, int]: # Chinono: WTF is this long list of Any XDD
     """ Retrieves metadata for downloaded songs """
     print("Fetching track information...")
@@ -95,7 +101,24 @@ def get_song_lyrics(song_id: str, file_save: str) -> None:
             return
     raise ValueError(f'Failed to fetch lyrics: {song_id}')
 
-def download_track(mode: str, track_id: str, extra_keys=None, disable_progressbar=False) -> None: # mode can be 'single', 'album', 'playlist', 'liked', 'extplaylist, Im not bothering them for now
+def get_output_template(mode: str) -> str:
+    """ Returns the output template for the given mode """
+    if CONFIG['OUTPUT']:
+        return CONFIG['OUTPUT']
+    elif mode == 'single':
+        return OUTPUT_DEFAULT_SINGLE
+    elif mode == 'album':
+        return OUTPUT_DEFAULT_ALBUM
+    elif mode == 'playlist':
+        return OUTPUT_DEFAULT_PLAYLIST
+    elif mode == 'liked':
+        return OUTPUT_DEFAULT_LIKED_SONGS
+    elif mode == 'extplaylist':
+        return OUTPUT_DEFAULT_PLAYLIST_EXT
+    else:
+        raise ValueError(f'Invalid mode: {mode}')
+
+def download_track(mode: str, track_id: str, extra_keys=None) -> None: # mode can be 'single', 'album', 'playlist', 'liked', 'extplaylist, Im not bothering them for now
     """ Downloads raw song audio from Spotify """
 
     if extra_keys is None:
@@ -104,7 +127,7 @@ def download_track(mode: str, track_id: str, extra_keys=None, disable_progressba
     print("Preparing Download...")
 
     try:
-        output_template = '{artist} - {song_name}.{ext}' # Only Single mode, other modes I will try to implement later
+        output_template = get_output_template(mode)
 
         (artists, raw_artists, album_name, name, image_url, release_year, disc_number,
          track_number, scraped_song_id, is_playable, duration_ms) = get_song_info(track_id)
