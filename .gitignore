@@ -20,3 +20,4 @@ deemix/vc_config/spotify/.auth-cache
 kusho.py
 bot/temp.py
 credentials.json
+.cache
