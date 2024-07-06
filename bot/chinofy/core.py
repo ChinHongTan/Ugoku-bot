@@ -9,25 +9,26 @@ from bot.chinofy.chinofy import Chinofy
 
 SEARCH_URL = 'https://api.spotify.com/v1/search'
 
-def download_from_urls(urls: list[str]) -> Tuple[bool, str, Path | None]:
+def download_from_urls(urls: list[str]) -> list[dict[str, Path]] | None:
     """ Downloads from a list of urls """
-    download = False
+    results = []
 
     for spotify_url in urls:
         track_id, album_id, playlist_id, episode_id, show_id, artist_id = regex_input_for_urls(spotify_url)
 
         if track_id is not None:
-            info, path = download_track('single', track_id)     
+            info = download_track('single', track_id)     
             if info:
-                download = True        
+                results.append(info)       
         elif artist_id is not None:
-            download = True
-            download_artist_albums(artist_id)
+            artist_album_info = download_artist_albums(artist_id)
+            if artist_album_info:
+                results.extend(artist_album_info)
         elif album_id is not None:
-            download = True
-            download_album(album_id)
+            album_info = download_album(album_id)
+            if album_info:
+                results.extend(album_info)
         elif playlist_id is not None:
-            download = True
             playlist_songs = get_playlist_songs(playlist_id)
             name, _ = get_playlist_info(playlist_id)
             enum = 1
@@ -39,7 +40,7 @@ def download_from_urls(urls: list[str]) -> Tuple[bool, str, Path | None]:
                     if song['track']['type'] == "episode": # Playlist item is a podcast episode
                         download_episode(song['track']['id'])
                     else:
-                        download_track('playlist', song['track']['id'], extra_keys=
+                        info = download_track('playlist', song['track']['id'], extra_keys=
                         {
                             'playlist_song_name': song['track']['name'],
                             'playlist': name,
@@ -47,17 +48,20 @@ def download_from_urls(urls: list[str]) -> Tuple[bool, str, Path | None]:
                             'playlist_id': playlist_id,
                             'playlist_track_id': song['track']['id']
                         })
+                        if info:
+                            results.append(info)
                     enum += 1
         elif episode_id is not None:
-            download = True
-            download_episode(episode_id)
+            episode_info = download_episode(episode_id)
+            if episode_info:
+                results.append(episode_info)
         elif show_id is not None:
-            download = True
             for episode in get_show_episodes(show_id):
-                download_episode(episode)
-        
+                episode_info = download_episode(episode)
+                if episode_info:
+                    results.extend(episode_info)
 
-    return download, info, path
+    return results
 
 def search(search_term: str, limit: int = 10, offset: int = 0, type: list = ['track','album','artist','playlist']):
     """ Searches download server's API for relevant data """

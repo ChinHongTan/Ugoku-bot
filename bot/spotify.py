@@ -24,7 +24,7 @@ SPOTIPY_CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID')
 SPOTIPY_CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
 SPOTIPY_REDIRECT_URI = os.getenv('SPOTIPY_REDIRECT_URI')
 
-"""
+
 # Init session
 # librespot
 session = Session.Builder() \
@@ -35,11 +35,9 @@ session = Session.Builder() \
 scope = "user-library-read"
 auth_manager = SpotifyClientCredentials()
 sp = spotipy.Spotify(auth_manager=auth_manager)
-"""
 
 
 class SpotifyDownloader:
-    """
     async def get_track_source(self, id: str) -> BytesIO | None:
         '''Get the data of a track from a single ID.
         Returns an info dictionary.
@@ -101,11 +99,12 @@ class SpotifyDownloader:
             'source': source
         }
         return info_dict
-    """
-    
+
+"""
+    ### An example of how to use the Chinofy class
     def from_url(self, url: str) -> dict[str] | None:
-        '''Returns song name and path if the download was successful
+        '''Returns a list of { 'display_name': song_name, 'path': Path(filename) } if the download was successful
         '''
-        Chinofy()
-        (download, song_name, path) = download_from_urls([url])
-        return [{ 'display_name': song_name, 'path': path }] if download else None
+        Chinofy()   # Initialize the class
+        return download_from_urls([url])
+"""

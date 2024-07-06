@@ -118,8 +118,8 @@ def get_output_template(mode: str) -> str:
     else:
         raise ValueError(f'Invalid mode: {mode}')
 
-def download_track(mode: str, track_id: str, extra_keys=None) -> Tuple[str, Path] | None:
-    """ Downloads raw song audio from Spotify, returns song name if successful """
+def download_track(mode: str, track_id: str, extra_keys=None) -> dict[str, Path] | None:
+    """ Downloads raw song audio from Spotify, returns { 'display_name': song_name, 'path': Path(filename) } if successful """
 
     if extra_keys is None:
         extra_keys = {}
@@ -236,7 +236,7 @@ def download_track(mode: str, track_id: str, extra_keys=None) -> Tuple[str, Path
 
                 if not CONFIG['BULK_WAIT_TIME']:
                     time.sleep(CONFIG['BULK_WAIT_TIME'])
-                return song_name, Path(filename)
+                return { 'display_name': song_name, 'path': Path(filename) }
         except Exception as e:
             print('###   SKIPPING: ' + song_name + ' (GENERAL DOWNLOAD ERROR)   ###')
             print('Track_ID: ' + str(track_id))

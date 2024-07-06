@@ -1,3 +1,4 @@
+from pathlib import Path
 from bot.chinofy.chinofy import Chinofy
 from bot.chinofy.track import download_track
 from bot.chinofy.utils import fix_filename
@@ -42,16 +43,22 @@ def get_artist_albums(artist_id):
     return album_ids
 
 
-def download_album(album):
+def download_album(album) -> list[dict[str, Path]]:
     """ Downloads songs from an album """
+    album_info = []
     artist, album_name = get_album_name(album)
     tracks = get_album_tracks(album)
     for n, track in enumerate(tracks, 1):
-        download_track('album', track['id'], extra_keys={'album_num': str(n).zfill(2), 'artist': artist, 'album': album_name, 'album_id': album})
+        info = download_track('album', track['id'], extra_keys={'album_num': str(n).zfill(2), 'artist': artist, 'album': album_name, 'album_id': album})
+        album_info.append(info)
+    return album_info
 
 
-def download_artist_albums(artist):
+def download_artist_albums(artist) -> list[dict[str, Path]]:
     """ Downloads albums of an artist """
+    artist_album_info = []
     albums = get_artist_albums(artist)
     for album_id in albums:
-        download_album(album_id)
+        album_info = download_album(album_id)
+        artist_album_info.extend(album_info)
+    return artist_album_info

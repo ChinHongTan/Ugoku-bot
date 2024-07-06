@@ -13,7 +13,7 @@ EPISODE_INFO_URL = 'https://api.spotify.com/v1/episodes'
 SHOWS_URL = 'https://api.spotify.com/v1/shows'
 
 
-def get_episode_info(episode_id_str) -> Tuple[Optional[str], Optional[str]]:
+def get_episode_info(episode_id_str) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     print("Fetching episode information...")
     (raw, info) = Chinofy.invoke_url(f'{EPISODE_INFO_URL}/{episode_id_str}')
     if not info:
@@ -68,13 +68,16 @@ def download_podcast_directly(url, filename):
     return path
 
 
-def download_episode(episode_id) -> None:
+def download_episode(episode_id) -> list[dict[str, Path]] | None:
     podcast_name, duration_ms, episode_name = get_episode_info(episode_id)
     extra_paths = podcast_name + '/'
     print("Preparing download...")
 
+    podcast_info = []
+
     if podcast_name is None:
         print('###   SKIPPING: (EPISODE NOT FOUND)   ###')
+        return None
     else:
         filename = podcast_name + ' - ' + episode_name
 
@@ -113,3 +116,6 @@ def download_episode(episode_id) -> None:
         else:
             filepath = PurePath(download_directory).joinpath(f"{filename}.mp3")
             download_podcast_directly(direct_download_url, filepath)
+        print(f"Downloaded {filename} in {download_directory}")
+        podcast_info.append({ 'display_name': filename, 'path': filepath })
+        return podcast_info
