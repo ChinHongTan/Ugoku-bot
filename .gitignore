@@ -21,3 +21,6 @@ kusho.py
 bot/temp.py
 credentials.json
 .cache
+bot/config/settings.json
+.idea
+.env.template

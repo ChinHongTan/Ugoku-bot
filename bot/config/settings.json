@@ -1,7 +1,1 @@
-{
-    "defaultMusicFormat": {},
-    "publicArl": {},
-    "defaultVolume": {},
-    "whitelistedServers": [],
-    "defaultMusicService": {}
-}
+{"defaultMusicFormat": {}, "publicArl": {}, "defaultVolume": {}, "whitelistedServers": [1044433636293881876, 825593413968723989], "defaultMusicService": {"853467383813636097": "Spotify"}}

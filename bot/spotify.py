@@ -39,7 +39,8 @@ except Session.SpotifyAuthenticationException as e:
     spotify_enabled = False
 
 # Spotipy
-auth_manager = SpotifyClientCredentials()
+auth_manager = SpotifyClientCredentials(client_id=SPOTIPY_CLIENT_ID,
+                                        client_secret=SPOTIPY_CLIENT_SECRET)
 sp = spotipy.Spotify(auth_manager=auth_manager)
 
 
